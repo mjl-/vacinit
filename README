@@ -65,10 +65,11 @@ mechiel lukkien, reachable at mechiel@ueber.net.
 
 # todo
 
-- vacinit: test 9p support
+- vacinit: find out why sometimes /dev/pointer is never released
 - tventi: check for, and recover from corrupt index/data files
+- xventi: should redial remote server if connection breaks.  perhaps should even work with requests in progress (those would have to be resend).
+- vacinit: think of a scheme that allows running multiple vacinits.  xventi & tventi listen on fixed tcp ports now.
+- vacinit: think of a scheme to verify configs.  they could contain a public key and a fingerprint over the remainder of the config.
 - vacinit: allow user to specify a profile too?  perhaps that can be part of a config too, but overridable.  allows for standard inferno-os distribution, but easily modified to suite a users needs.
 - vacinit: show some kind of progress while doing vacwalk?  afterwards, we should be able to killgrp only the gui part, not the venti's.
-- vacinit: find out why sometimes /dev/pointer is never released
-- xventi: should redial remote server if connection breaks.  perhaps should even work with requests in progress (those would have to be resend).
 - all: write man pages

@@ -162,11 +162,6 @@ say(sprint("wdir %q", wdir));
 	tkcmd("bind .n.url {<Key-\t>}		{focus .e}");
 	tkcmd("bind .n.url <ButtonPress-2>	{send cmd paste %W}");
 
-	tkcmd("frame .c");
-	tkcmd("button .c.update	-text update	-command {send cmd update}");
-	tkcmd("button .c.run    -text run	-command {send cmd run}");
-	tkcmd("pack .c.update .c.run -anchor w -fill x");
-
 	tkcmd("frame .i");
 	tkcmd("label .i.l -text {current config:}");
 	tkcmd("text .i.txt -state disabled");
@@ -177,16 +172,15 @@ say(sprint("wdir %q", wdir));
 	tkcmd("pack .m.txt -fill both -expand 1");
 
 	tkcmd("pack .e -side left -fill y");
-	tkcmd("pack .n .c .i -in .m -fill x -expand 0 -anchor w -padx 15 -pady 15");
+	tkcmd("pack .n .i -in .m -fill x -expand 0 -anchor w -padx 15 -pady 15");
 	tkcmd("pack .m.txt -fill both -expand 1 -padx 10 -pady 10");
 	tkcmd("pack .m -fill both -expand 1");
-	tkcmd("focus .n.url");
 
-	nerr := setnames();
+	nerr := setnames(nil);
 	if(nerr != nil)
 		warn(nerr);
-	if(len names != 0)
-		tkcmd(".e activate 0");
+	if(len names == 0)
+		tkcmd("focus .n.url");
 	tkmsg(initmsg);
 
 	tkclient->onscreen(top, nil);
@@ -218,15 +212,16 @@ say(sprint("wdir %q", wdir));
 			if(err == nil) {
 				cc.name = str->splitstrr(u.path, "/").t1;
 				cc.url = u.text();
-				err = newcfg(cc);
+				err = wc(cc);
 			}
+			if(err == nil)
+				err = setnames(cc.name);
 			if(err != nil)
 				tkmsg(err);
 		"select" or
-		"update" or
 		"run" =>
 			i := int tkcmd(".e curselection");
-			if(i >= len names) {
+			if(i < 0 || i >= len names) {
 				tkmsg("no valid config selected");
 				break;
 			}
@@ -238,20 +233,6 @@ say(sprint("wdir %q", wdir));
 			case s {
 			"select" =>
 				tkcfg(cc);
-			"update" =>
-				u: ref Url;
-				if(cc.url == nil)
-					err = "no url available, cannot update";
-				if(err == nil)
-					(u, err) = Url.parse(cc.url);
-				if(err == nil)
-					(cc, err) = fetch(u, cc.name);
-				if(err == nil)
-					err = wc(cc);
-				if(err == nil)
-					tkcfg(cc);
-				else
-					tkmsg(err);
 			"run" =>
 				spawn run(cc, pid());
 				rc := chan of int;
@@ -290,13 +271,18 @@ Url.text(u: self ref Url): string
 	return sprint("%s://%s/%s", u.proto, u.addr, u.path);
 }
 
-setnames(): string
+
+setnames(nm: string): string
 {
 	nms: list of string;
 	dfd := sys->open("/vacinit/lib/vacinit", sys->OREAD);
 	if(dfd == nil)
 		return sprint("open: %r");
 	tkcmd(".e delete 0 end");
+	newest: ref sys->Dir;
+	ni := -1;
+	nmi := -1;
+	j := 0;
 	for(;;) {
 		(n, dd) := sys->dirread(dfd);
 		if(n < 0)
@@ -309,33 +295,41 @@ setnames(): string
 			"tindex" =>
 				{}
 			* =>
+				if(newest == nil || dd[i].mtime > newest.mtime) {
+					newest = ref dd[i];
+					ni = j;
+				}
+				if(nm != nil && dd[i].name == nm)
+					nmi = j;
 				tkcmd(".e insert end '"+dd[i].name);
 				nms = dd[i].name::nms;
+				j++;
 			}
 		}
 	}
 	names = l2a(rev(nms));
-	return nil;
-}
-
-newcfg(c: ref Cfg): string
-{
-	err := wc(c);
-	if(err == nil)
-		err = setnames();
-	if(err != nil)
-		return err;
-	for(i := 0; i < len names; i++)
-		if(names[i] == c.name) {
-			tkcmd(".e activate "+string i);
+	if(nm != nil && nmi < 0)
+		err := sprint("missing name %#q", nm);
+	if(nmi < 0) {
+		nmi = ni;
+		if(newest != nil)
+			nm = newest.name;
+	}
+	if(nmi >= 0) {
+		tkcmd(".e activate "+string nmi);
+		c: ref Cfg;
+		(c, err) = rc(nm);
+		if(err == nil) {
 			tkcfg(c);
-			return nil;
+			tkcmd("focus .e");
 		}
-	return "config not found after writing it";
+	}
+	return err;
 }
 
 tkcfg(c: ref Cfg)
 {
+	tkcmd(".n.url delete 0 end; .n.url insert 0 '"+c.url);
 	tkcmd(".i.txt delete 1.0 end; .i.txt insert 1.0 '"+c.text());
 }
 
@@ -412,7 +406,7 @@ fetch9p(u: ref Url, nm: string): (ref Cfg, string)
 	"x:*" =>
 		err = "parsing config: "+ex[2:];
 	}
-	if(sys->unmount("/env", sys->fd2path(cc.dfd)) < 0)
+	if(sys->unmount(sys->fd2path(cc.dfd), "/env") < 0)
 		warn(sprint("unmount: %r"));
 	return (c, err);
 }
@@ -787,7 +781,8 @@ wf(f, s: string)
 
 tkmsg(s: string)
 {
-	warn(s);
+	if(s != nil)
+		warn(s);
 	tkcmd(".m.txt delete 1.0 end");
 	tkcmd(".m.txt insert 1.0 '"+s);
 }
