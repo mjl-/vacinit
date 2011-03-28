@@ -1,0 +1,24 @@
+<../../mkconfig
+
+TARG=\
+	vacinit.dis\
+	slowventi.dis\
+	xventi.dis\
+	tventi.dis\
+	vacwalksrv.dis\
+
+SYSMODULES=\
+	arg.m\
+	bufio.m\
+	daytime.m\
+	dial.m\
+	draw.m\
+	keyring.m\
+	string.m\
+	sys.m\
+	tables.m\
+	venti.m\
+
+DISBIN=$ROOT/dis
+
+<$ROOT/mkfiles/mkdis

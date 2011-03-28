@@ -1,0 +1,74 @@
+# status
+
+experimental
+
+
+# intro
+
+vacinit is a replacement for emuinit, it can be the first limbo
+program started by emu to set up the environment.  more specific:
+vacinit uses a vac as the file system (read-only).  it can be started
+like this (assuming its dependencies are available too):
+
+	emu -d /dis/vacinit.dis
+
+this repository also includes the following programs which are used by
+vacinit:
+- tventi, simple read/write venti server that keeps all scores in
+  memory.
+- xventi, a venti proxy server that accepts read requests that it
+  forwards to a local venti server (vacinit sets up a tventi for this
+  purpose).  the data is returned to the client.  if the local server
+  does not have the block, the request is sent to a "remote" (typically
+  over a higher-latency link) server (which is assumed to be
+  authoritative).  the response is returned to the client.  if the the
+  response included data, it is also written to the local server so
+  future local requests will succeed.
+
+vacwalksrv is a simple network server that accepts a vac score and
+a list of paths and returns score,type pairs required for reading
+those files/directories.  vacinit can connect to such a server to
+quickly retrieve files required to start up inferno, and other
+commonly used files.  this is especially useful on high latency
+connections.  vacwalksrv typically runs on the same server as the
+venti server holding the vac tree.
+
+slowventi is also included, it simulates venti over a high-latency
+and/or bandwidth-constrained link.
+
+vacinit itself shows a tk interface with a list of configs (vac scores
+and venti server addresses) to choose from.  it also lets you fetch a
+new config over 9p or http.
+
+
+# install
+
+make sure $ROOT is set.  now "mk install" to compile and install the
+files.
+
+when building from within inferno, insert SYSHOST=Inferno and ROOT=
+in the mk invocations to override the values in the mkconfig.
+
+
+# latest version
+
+the latest version can be found at:
+
+    http://www.ueber.net/code/r/vacinit
+
+
+# licence & author
+
+all files are in the public domain.  this code has been written by
+mechiel lukkien, reachable at mechiel@ueber.net.
+
+
+# todo
+
+- vacinit: test 9p support
+- tventi: check for, and recover from corrupt index/data files
+- vacinit: allow user to specify a profile too?  perhaps that can be part of a config too, but overridable.  allows for standard inferno-os distribution, but easily modified to suite a users needs.
+- vacinit: show some kind of progress while doing vacwalk?  afterwards, we should be able to killgrp only the gui part, not the venti's.
+- vacinit: find out why sometimes /dev/pointer is never released
+- xventi: should redial remote server if connection breaks.  perhaps should even work with requests in progress (those would have to be resend).
+- all: write man pages
