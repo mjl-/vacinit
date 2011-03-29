@@ -12,6 +12,8 @@ include "bufio.m";
 	Iobuf: import bufio;
 include "dial.m";
 	dial: Dial;
+include "keyboard.m";
+	kb: Keyboard;
 include "keyring.m";
 	kr: Keyring;
 include "string.m";
@@ -157,10 +159,12 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	cmdc := chan of string;
 	tk->namechan(top, cmdc, "cmd");
 	tkcmd("listbox .e -selectmode browse");
-	tkcmd("bind .e {<Key-\t>}          {focus .n.url}");
-	tkcmd("bind .e {<Key-\n>}          {send cmd run}");
-	tkcmd("bind .e {<Button-1>}        +{send cmd select}");
-	tkcmd("bind .e {<Double-Button-1>} +{send cmd run}");
+	tkcmd("bind .e {<Key-\t>}		{focus .n.url}");
+	tkcmd("bind .e {<Key-\n>}		{send cmd run}");
+	tkcmd("bind .e {<Button-1>}		+{send cmd select}");
+	tkcmd("bind .e {<Double-Button-1>}	+{send cmd run}");
+	tkcmd(sprint("bind .e <KeyPress-%c>	+{send cmd up}", kb->Up));
+	tkcmd(sprint("bind .e <KeyPress-%c>	+{send cmd down}", kb->Down));
 
 	tkcmd("frame .n");
 	tkcmd("label .n.new -text {fetch config by http or 9p url:}");
@@ -211,6 +215,19 @@ init0(ctxt: ref Draw->Context, args: list of string)
 
 	s := <-cmdc =>
 		say("cmd: "+s);
+		case s {
+		"up" or
+		"down" =>
+			dir := -1;
+			if(s == "down")
+				dir = 1;
+			sel := tkcmd(".e curselection");
+			if(sel == nil || (n := int sel+dir) < 0 || n >= int tkcmd(".e size"))
+				continue;
+			tkcmd(sprint(".e selection clear 0 end; .e selection set %d %d", n, n));
+			tkcmd(sprint(".e activate %d", n));
+			s = "select";
+		}
 		tkmsg("");
 		case s {
 		"fetch" =>
