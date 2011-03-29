@@ -156,8 +156,10 @@ cwriter(fd: ref Sys->FD, tc: chan of byte, c: chan of (ref Vmsg, int))
 	}
 }
 
-writer(fd: ref Sys->FD, c: chan of ref Vmsg, ec: chan of string, who: string)
+writer(fd: ref Sys->FD, c: chan of ref Vmsg, ec: chan of string, who: string, pidc: chan of int)
 {
+	if(pidc != nil)
+		pidc <-= pid();
 	for(;;) {
 		m := <-c;
 		if(tflag) warn(who+" -> "+m.text());
@@ -166,8 +168,10 @@ writer(fd: ref Sys->FD, c: chan of ref Vmsg, ec: chan of string, who: string)
 	}
 }
 
-reader(fd: ref Sys->FD, c: chan of ref Vmsg, ec: chan of string, who: string)
+reader(fd: ref Sys->FD, c: chan of ref Vmsg, ec: chan of string, who: string, pidc: chan of int)
 {
+	if(pidc != nil)
+		pidc <-= pid();
 	for(;;) {
 		(m, err) := Vmsg.read(fd);
 		if(tflag) warn(who+" <- "+m.text());
@@ -203,15 +207,17 @@ say("protox");
 	ltc := chan[256] of ref Vmsg;
 	lrc := chan[1] of ref Vmsg;
 	lerrc := chan of string;
-	spawn writer(lfd, ltc, lerrc, "local");
-	spawn reader(lfd, lrc, lerrc, "local");
+	spawn writer(lfd, ltc, lerrc, "local", nil);
+	spawn reader(lfd, lrc, lerrc, "local", nil);
 
 	ctidtab := Table[ref Vmsg.Tread].new(31, nil);
 
 	rfd: ref Sys->FD;
-	rtc := chan[256] of ref Vmsg;
-	rrc := chan[1] of ref Vmsg;
 	rerrc := chan of string;
+	rpids: list of int;
+	# replaced with buffered channels before spawning reader & writer
+	rtc := chan of ref Vmsg;
+	rrc := chan of ref Vmsg;
 
 	wfd: ref Sys->FD;
 	wtc := chan[256] of ref Vmsg;
@@ -228,6 +234,7 @@ say("protox");
 		Tread =>
 			if(ctidtab.find(tid) != nil)
 				fail("client sent duplicate tid");
+			m.istmsg = 1;  # underway to local
 			ltc <-= m;
 			ctidtab.add(tid, m);
 		Twrite =>
@@ -263,9 +270,14 @@ say("protox");
 					crc <-= (ref Vmsg.Rerror(0, tid, err), 1);
 					continue;
 				}
-				spawn writer(rfd, rtc, rerrc, "remote");
-				spawn reader(rfd, rrc, rerrc, "remote");
+				rtc = chan[256] of ref Vmsg;
+				rrc = chan[1] of ref Vmsg;
+				pidc := chan of int;
+				spawn writer(rfd, rtc, rerrc, "remote", pidc);
+				spawn reader(rfd, rrc, rerrc, "remote", pidc);
+				rpids = list of {<-pidc, <-pidc};
 			}
+			m.istmsg = 2;  # underway to remote
 			rtc <-= tm;
 		Rread =>
 			ctidtab.del(tid);
@@ -280,9 +292,43 @@ say("protox");
 		}
 
 	e := <-rerrc =>
-		# i/o error to/from remote
-		# xxx redial and reschedule writes.  if it fails again, return errors.
-		fail("i/o error to/from remote: "+e);
+		warn("i/o error to/from remote: "+e);
+		kill(hd rpids);
+		kill(hd tl rpids);
+
+		otids: list of int;
+		for(i = 0; i < len ctidtab.items; i++) {
+			for(l := ctidtab.items[i]; l != nil; l = tl l)
+				if((hd l).t1.istmsg == 2)  # was underway to remote
+					otids = (hd l).t1.tid::otids;
+		}
+
+		if(otids == nil) {
+			# will redial when request comes in
+			rfd = nil;
+			rpids = nil;
+			continue;
+		}
+
+		say(sprint("redial remaddr %q for authoritative lookups", remaddr));
+		rfd = vdial(remaddr);
+		if(rfd == nil) {
+			warn(err := sprint("redial remote %q: %r", remaddr));
+			for(l := otids; l != nil; l = tl l) {
+				ctidtab.del(hd l);
+				crc <-= (ref Vmsg.Rerror(0, hd l, err), 1);
+			}
+		} else {
+			rtc = chan[256] of ref Vmsg;
+			rrc = chan[1] of ref Vmsg;
+			pidc := chan of int;
+			spawn writer(rfd, rtc, rerrc, "remote", pidc);
+			spawn reader(rfd, rrc, rerrc, "remote", pidc);
+			rpids = list of {<-pidc, <-pidc};
+
+			for(l := otids; l != nil; l = tl l)
+				rtc <-= ctidtab.find(hd l);
+		}
 
 	mm := <-rrc =>
 		tid := mm.tid;
@@ -311,8 +357,8 @@ say("protox");
 				}
 				wtids = mktids();
 				wtidtab = wtidtab.new(31, nil);
-				spawn writer(wfd, wtc, werrc, "localwrite");
-				spawn reader(wfd, wrc, werrc, "localwrite");
+				spawn writer(wfd, wtc, werrc, "localwrite", nil);
+				spawn reader(wfd, wrc, werrc, "localwrite", nil);
 			}
 			tid = hd wtids;
 			wtids = tl wtids;
@@ -391,6 +437,11 @@ sha1(d: array of byte): array of byte
 progctl(pid: int, s: string)
 {
 	sys->fprint(sys->open(sprint("/prog/%d/ctl", pid), sys->OWRITE), "%s", s);
+}
+
+kill(pid: int)
+{
+	progctl(pid, "kill");
 }
 
 killgrp(pid: int)
