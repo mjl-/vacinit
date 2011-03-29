@@ -37,7 +37,7 @@ Cmd: type Vacinit;
 dflag: int;
 Vflag: int;
 
-wdir: string;
+home: string;
 names: array of string;
 top: ref Tk->Toplevel;
 
@@ -64,6 +64,14 @@ Cfg: adt {
 
 init(ctxt: ref Draw->Context, args: list of string)
 {
+	spawn init0(ctxt, args);
+	rc := chan of int;
+	<-rc;
+}
+
+
+init0(ctxt: ref Draw->Context, args: list of string)
+{
 	sys = load Sys Sys->PATH;
 	if(sys->bind("/vacinit", "/", sys->MAFTER) < 0)
 		fail(sprint("bind /vacinit on /: %r"));
@@ -80,7 +88,7 @@ init(ctxt: ref Draw->Context, args: list of string)
 	venti = load Venti Venti->PATH;
 	venti->init();
 
-	sys->pctl(sys->NEWPGRP, nil);
+	sys->pctl(sys->NEWPGRP|Sys->FORKNS, nil);
 
 	dflag++;
 
@@ -97,32 +105,34 @@ init(ctxt: ref Draw->Context, args: list of string)
 		arg->usage();
 
 	xbind("#e", "/env", sys->MREPL|sys->MCREATE);
-	emuwdir := env->getenv("emuwdir");
-say(sprint("emuwdir %q", emuwdir));
-	wdir = "#U"+emuwdir;
-	if(sys->stat(wdir).t0 != 0) {
-		wdir = "#U*"+emuwdir;
-		if(sys->stat(wdir).t0 != 0)
-			fail("cannot stat emuwdir");
+	home = getenvq("emuhome");
+	reldir := "$home";
+	if(home == nil || sys->stat(home).t0 != 0) {
+		wdir := getenvq("emuwdir");
+		if(sys->stat(home="#U*"+wdir).t0 == 0 || sys->stat(home="#U"+wdir).t0 == 0)
+			{}
+		else
+			fail("cannot find emu home or working directory");
+		reldir = ".";
 	}
-say(sprint("wdir %q", wdir));
+	say(sprint("home %q", home));
 
 	# ensure lib/ and lib/vacinit/ exist
 	initmsg: string;
-	if(sys->stat(wdir+"/lib").t0 != 0) {
-		if(sys->create(wdir+"/lib", sys->OREAD, sys->DMDIR|8r777) == nil)
-			initmsg += sprint("mkdir lib: %r\n");
+	if(sys->stat(home+"/lib").t0 != 0) {
+		if(sys->create(home+"/lib", sys->OREAD, sys->DMDIR|8r777) == nil)
+			initmsg += sprint("mkdir %s/lib: %r\n", reldir);
 		else
-			initmsg += "directory lib/ created\n";
+			initmsg += sprint("directory %s/lib/ created\n", reldir);
 	}
-	if(sys->stat(wdir+"/lib/vacinit").t0 != 0) {
-		if(sys->create(wdir+"/lib/vacinit", sys->OREAD, sys->DMDIR|8r777) == nil)
-			initmsg += sprint("mkdir lib/vacinit: %r\n");
+	if(sys->stat(home+"/lib/vacinit").t0 != 0) {
+		if(sys->create(home+"/lib/vacinit", sys->OREAD, sys->DMDIR|8r777) == nil)
+			initmsg += sprint("mkdir %s/lib/vacinit: %r\n", reldir);
 		else
-			initmsg += "directory lib/vacinit/ created\n";
+			initmsg += sprint("directory %s/lib/vacinit/ created\n", reldir);
 	}
 
-	sys->bind(wdir+"/lib/vacinit", "/vacinit/lib/vacinit", sys->MCREATE|sys->MBEFORE);
+	sys->bind(home+"/lib/vacinit", "/vacinit/lib/vacinit", sys->MCREATE|sys->MBEFORE);
 
 	cs();
 
@@ -425,7 +435,7 @@ cs()
 	cs := load Cmd "/dis/ndb/cs.dis";
 	if(cs == nil)
 		fail(sprint("load ndb/cs: %r"));
-	cs->init(nil, list of {"/ndb/cs"});
+	cs->init(nil, list of {"/dis/ndb/cs.dis"});
 }
 
 run(c: ref Cfg, ppid: int)
@@ -485,7 +495,6 @@ say("new root");
 	xbind("#I", "/net", Sys->MREPL);
 	xbind("#e", "/env", Sys->MREPL|sys->MCREATE);
 	xbind("#scs", "/net", Sys->MBEFORE);
-	xbind(wdir, "/local", Sys->MREPL|sys->MCREATE);
 
 	wf("/env/vaclocalwrite", writeaddr);
 	wf("/env/vacproxy", localaddr);
@@ -785,6 +794,15 @@ tkmsg(s: string)
 		warn(s);
 	tkcmd(".m.txt delete 1.0 end");
 	tkcmd(".m.txt insert 1.0 '"+s);
+}
+
+getenvq(s: string): string
+{
+	s = env->getenv(s);
+	l := str->unquoted(s);
+	if(len l != 1)
+		return s;
+	return hd l;
 }
 
 sha1(d: array of byte): array of byte
