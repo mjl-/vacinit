@@ -1,0 +1,15 @@
+<../../mkconfig
+
+TARG=\
+	prompt.dis\
+
+SYSMODULES=\
+	arg.m\
+	draw.m\
+	sys.m\
+	tk.m\
+	tkclient.m\
+
+DISBIN=$ROOT/dis/wm
+
+<$ROOT/mkfiles/mkdis
