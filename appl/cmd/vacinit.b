@@ -137,7 +137,8 @@ init0(ctxt: ref Draw->Context, args: list of string)
 
 	sys->bind(home+"/lib/vacinit", "/vacinit/lib/vacinit", sys->MCREATE|sys->MBEFORE);
 
-	cs();
+	if(sys->stat("/net/cs").t0 != 0)
+		cs();
 
 	if(sys->stat("/vacinit/lib/vacinit/default").t0 == 0) {
 		say("using default");
@@ -478,7 +479,8 @@ run(c: ref Cfg, ppid: int)
 		warn("/dev/pointer not yet available...");
 		sys->sleep(100);
 	}
-	cs();
+	if(sys->stat("/net/cs").t0 != 0)
+		cs();
 
 	remaddr := dial->netmkaddr(c.venti, "tcp", "17034");
 	writeaddr := "tcp!localhost!57034";
@@ -519,9 +521,16 @@ say("new root");
 	xbind("#c", "/dev", Sys->MBEFORE);
 	xbind("#p", "/prog", Sys->MREPL);
 	xbind("#d", "/fd", Sys->MREPL);
-	xbind("#I", "/net", Sys->MREPL);
 	xbind("#e", "/env", Sys->MREPL|sys->MCREATE);
-	xbind("#scs", "/net", Sys->MBEFORE);
+	case env->getenv("emuhost") {
+	"Plan9" =>
+		#xbind("#U*/dev", "/dev", Sys->MAFTER);
+		xbind("#U*/net", "/net", Sys->MAFTER);
+		xbind("#U*/net.alt", "/net.alt", Sys->MAFTER);
+	* =>
+		xbind("#I", "/net", Sys->MREPL);
+		xbind("#scs", "/net", Sys->MBEFORE);
+	}
 
 	wf("/env/vaclocalwrite", writeaddr);
 	wf("/env/vacproxy", localaddr);
