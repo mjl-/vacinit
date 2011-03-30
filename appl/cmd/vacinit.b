@@ -179,13 +179,16 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	tkcmd("bind .n.url <ButtonPress-2>	{send cmd paste %W}");
 
 	tkcmd("frame .i");
-	tkcmd("label .i.l -text {current config:}");
+	tkcmd("label .i.l -anchor w -text "+tk->quote(sprint("using %s/lib/vacinit/, current config:", reldir)));
 	tkcmd("text .i.txt -state disabled");
-	tkcmd("pack .i.l .i.txt -fill x");
+	tkcmd("pack .i.l .i.txt -fill x -anchor w");
 
 	tkcmd("frame .m");
 	tkcmd("text .m.txt -state disabled");
 	tkcmd("pack .m.txt -fill both -expand 1");
+
+	tkcmd("button .c -text {remove vacinit files} -command {send cmd cleanup}");
+	tkcmd(sprint("bind .c <Enter> {.m.txt delete 1.0 end; .m.txt insert 1.0 {Remove %s/lib/vacinit/*, %s/lib/vacinit/ and possibly %s/lib/}}", reldir, reldir, reldir));
 
 	(nil, rd) := sys->stat("#/");
 	tkcmd("label .v -anchor e -text 'compiled at: "+string rd.mtime);
@@ -194,6 +197,7 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	tkcmd("pack .n .i -in .m -fill x -expand 0 -anchor w -padx 15 -pady 15");
 	tkcmd("pack .m.txt -fill both -expand 1 -padx 10 -pady 10");
 	tkcmd("pack .m -fill both -expand 1");
+	tkcmd("pack .c -anchor e");
 	tkcmd("pack .v -fill x -anchor e");
 
 	nerr := setnames(nil);
@@ -271,6 +275,10 @@ init0(ctxt: ref Draw->Context, args: list of string)
 				rc := chan of int;
 				<-rc;
 			}
+		"cleanup" =>
+			tkcfgclear();
+			cleanup();
+			setnames(nil);
 		* =>
 			if(str->prefix("paste ", s)) {
 				w := s[len "paste ":];
@@ -280,6 +288,33 @@ init0(ctxt: ref Draw->Context, args: list of string)
 		}
 		tkcmd("update");
 	}
+}
+
+cleanup()
+{
+	fd := sys->open(home+"/lib/vacinit", sys->OREAD);
+	if(fd == nil)
+		return tkmsg(sprint("open: %r"));
+	tkmsg(r := "removing:\n");
+	for(;;) {
+		(n, a) := sys->dirread(fd);
+		if(n < 0)
+			return tkmsg(r += sprint("dirread: %r\n"));
+		if(n == 0)
+			break;
+		for(i := 0; i < n; i++)
+			tkmsg(r += remove(home+"/lib/vacinit/"+a[i].name));
+	}
+	tkmsg(r += remove(home+"/lib/vacinit"));
+	tkmsg(r += remove(home+"/lib"));
+	tkmsg(r += "done\n");
+}
+
+remove(p: string): string
+{
+	if(sys->remove(p) < 0)
+		return sprint("error: %q: %r\n", p);
+	return sprint("%q\n", p);
 }
 
 Url.parse(s: string): (ref Url, string)
@@ -308,10 +343,10 @@ Url.text(u: self ref Url): string
 setnames(nm: string): string
 {
 	nms: list of string;
+	tkcmd(".e delete 0 end");
 	dfd := sys->open("/vacinit/lib/vacinit", sys->OREAD);
 	if(dfd == nil)
 		return sprint("open: %r");
-	tkcmd(".e delete 0 end");
 	newest: ref sys->Dir;
 	ni := -1;
 	nmi := -1;
@@ -360,10 +395,17 @@ setnames(nm: string): string
 	return err;
 }
 
+tkcfgclear()
+{
+	tkcmd(".n.url delete 0 end");
+	tkcmd(".i.txt delete 1.0 end");
+}
+
 tkcfg(c: ref Cfg)
 {
-	tkcmd(".n.url delete 0 end; .n.url insert 0 '"+c.url);
-	tkcmd(".i.txt delete 1.0 end; .i.txt insert 1.0 '"+c.text());
+	tkcfgclear();
+	tkcmd(".n.url insert 0 '"+c.url);
+	tkcmd(".i.txt insert 1.0 '"+c.text());
 	n := int tkcmd(".i.txt index end");
 	if(n < 10)
 		n = 10;
