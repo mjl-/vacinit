@@ -61,6 +61,7 @@ Cfg: adt {
 	run:	string;
 	env:	list of ref (string, string);  # does not hold the other fields in this adt
 
+	find:	fn(c: self ref Cfg, s: string): string;
 	text:	fn(c: self ref Cfg): string;
 };
 
@@ -163,8 +164,8 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	tkcmd("bind .e {<Key-\n>}		{send cmd run}");
 	tkcmd("bind .e {<Button-1>}		+{send cmd select}");
 	tkcmd("bind .e {<Double-Button-1>}	+{send cmd run}");
-	tkcmd(sprint("bind .e <KeyPress-%c>	+{send cmd up}", kb->Up));
-	tkcmd(sprint("bind .e <KeyPress-%c>	+{send cmd down}", kb->Down));
+	tkcmd(sprint("bind .e <KeyPress-%c>	{send cmd up}", kb->Up));
+	tkcmd(sprint("bind .e <KeyPress-%c>	{send cmd down}", kb->Down));
 
 	tkcmd("frame .n");
 	tkcmd("label .n.new -text {fetch config by http or 9p url:}");
@@ -358,6 +359,10 @@ tkcfg(c: ref Cfg)
 {
 	tkcmd(".n.url delete 0 end; .n.url insert 0 '"+c.url);
 	tkcmd(".i.txt delete 1.0 end; .i.txt insert 1.0 '"+c.text());
+	n := int tkcmd(".i.txt index end");
+	if(n < 10)
+		n = 10;
+	tkcmd(sprint(".i.txt configure -height %dh", n));
 }
 
 nocrlf(s: string): string
@@ -457,6 +462,8 @@ cs()
 
 run(c: ref Cfg, ppid: int)
 {
+	dflag = int c.find("debug");
+
 	tkmsg("inferno is being loaded.\n\nthis user interface has been killed and will be replaced by inferno's window manager shortly.\nif this is the first run it may take a while before the interface shows.\n\nenjoy!\n");
 	tkcmd("update");
 
@@ -481,13 +488,15 @@ say("tventi");
 	tventi := load Cmd "/dis/tventi.dis";
 	if(tventi == nil)
 		fail(sprint("load tventi: %r"));
-	tventi->init(nil, list of {"tventi", "-dV", "-f", "/vacinit/lib/vacinit/tdata", "-i", "/vacinit/lib/vacinit/tindex", "-c", "-a", writeaddr});
+	tventiargv := concat(list of {"tventi", "-V", "-f", "/vacinit/lib/vacinit/tdata", "-i", "/vacinit/lib/vacinit/tindex", "-c", "-a", writeaddr}, str->unquoted(c.find("tventi")));
+	tventi->init(nil, tventiargv);
 
 say("xventi");
 	xventi := load Cmd "/dis/xventi.dis";
 	if(xventi == nil)
 		fail(sprint("load xventi: %r"));
-	xventi->init(nil, list of {"xventi", "-d", "-a", localaddr, remaddr, writeaddr});
+	xventiargv := concat(list of {"xventi", "-a", localaddr}, concat(str->unquoted(c.find("xventi")), list of {remaddr, writeaddr}));
+	xventi->init(nil, xventiargv);
 
 	# keep tventi & xventi in their original namespace
 	sys->pctl(Sys->FORKNS, nil);
@@ -499,7 +508,8 @@ say("vacsrv");
 	vacsrv := load Cmd "/dis/vacsrv.dis";
 	if(vacsrv == nil)
 		fail(sprint("load vacsrv: %r"));
-	vacsrv->init(nil, list of {"vacsrv", "-n", "-a", localaddr, "-m", "/", c.score});
+	vacsrvargv := concat(list of {"vacsrv", "-n", "-a", localaddr, "-m", "/"}, concat(str->unquoted(c.find("vacsrv")), list of {c.score}));
+	vacsrv->init(nil, vacsrvargv);
 	xbind("#/", "/", sys->MBEFORE);
 say("new root");
 
@@ -760,6 +770,15 @@ xbrc(nm: string, b: ref Iobuf): ref Cfg
 	return c;
 }
 
+
+Cfg.find(c: self ref Cfg, s: string): string
+{
+	for(l := c.env; l != nil; l = tl l)
+		if((hd l).t0 == s)
+			return (hd l).t1;
+	return nil;
+}
+
 Cfg.text(c: self ref Cfg): string
 {
 	s := sprint("score=%q\nventi=%q\n", c.score, c.venti);
@@ -827,6 +846,14 @@ sha1(d: array of byte): array of byte
 	dig := array[kr->SHA1dlen] of byte;
 	kr->sha1(d, len d, dig, nil);
 	return dig;
+}
+
+concat[T](a, b: list of T): list of T
+{
+	r := b;
+	for(a = rev(a); a != nil; a = tl a)
+		r = hd a::r;
+	return r;
 }
 
 l2a[T](l: list of T): array of T
