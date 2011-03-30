@@ -295,6 +295,10 @@ say("protox");
 		warn("i/o error to/from remote: "+e);
 		kill(hd rpids);
 		kill(hd tl rpids);
+		rpids = nil;
+		rtc = chan of ref Vmsg;
+		rrc = chan of ref Vmsg;
+		rfd = nil;
 
 		otids: list of int;
 		for(i = 0; i < len ctidtab.items; i++) {
@@ -303,12 +307,8 @@ say("protox");
 					otids = (hd l).t1.tid::otids;
 		}
 
-		if(otids == nil) {
-			# will redial when request comes in
-			rfd = nil;
-			rpids = nil;
+		if(otids == nil)
 			continue;
-		}
 
 		say(sprint("redial remaddr %q for authoritative lookups", remaddr));
 		rfd = vdial(remaddr);
