@@ -187,10 +187,14 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	tkcmd("text .m.txt -state disabled");
 	tkcmd("pack .m.txt -fill both -expand 1");
 
+	(nil, rd) := sys->stat("#/");
+	tkcmd("label .v -anchor e -text 'compiled at: "+string rd.mtime);
+
 	tkcmd("pack .e -side left -fill y");
 	tkcmd("pack .n .i -in .m -fill x -expand 0 -anchor w -padx 15 -pady 15");
 	tkcmd("pack .m.txt -fill both -expand 1 -padx 10 -pady 10");
 	tkcmd("pack .m -fill both -expand 1");
+	tkcmd("pack .v -fill x -anchor e");
 
 	nerr := setnames(nil);
 	if(nerr != nil)
