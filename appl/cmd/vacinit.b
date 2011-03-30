@@ -184,7 +184,7 @@ init0(ctxt: ref Draw->Context, args: list of string)
 	tkcmd("pack .i.l .i.txt -fill x -anchor w");
 
 	tkcmd("frame .m");
-	tkcmd("text .m.txt -state disabled");
+	tkcmd("text .m.txt -state disabled -wrap word");
 	tkcmd("pack .m.txt -fill both -expand 1");
 
 	tkcmd("button .c -text {remove vacinit files} -command {send cmd cleanup}");
@@ -516,6 +516,7 @@ run(c: ref Cfg, ppid: int)
 
 	# kill the gui, make sure /dev/pointer is available again (fd holding it must be gc'ed)
 	killgrp(ppid);
+	top = nil;
 	for(;;) {
 		fd := sys->open("/dev/pointer", sys->OREAD);
 		if(fd != nil) {
