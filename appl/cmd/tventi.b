@@ -35,6 +35,7 @@ Vflag: int;
 index := "tindex";
 data := "tdata";
 addr := "*";
+readonlyaddr: string;
 ioff,
 doff: big;
 ifd,
@@ -111,7 +112,7 @@ init(nil: ref Draw->Context, args: list of string)
 	sys->pctl(sys->NEWPGRP, nil);
 
 	arg->init(args);
-	arg->setusage(arg->progname()+" [-dtV] [-c] [-a addr] [-i index] [-f data]");
+	arg->setusage(arg->progname()+" [-dtV] [-c] [-a addr] [-r readonlyaddr] [-i index] [-f data]");
 	while((c := arg->opt()) != 0)
 		case c {
 		'd' =>	dflag++;
@@ -119,6 +120,7 @@ init(nil: ref Draw->Context, args: list of string)
 		'c' =>	cflag++;
 		'i' =>	index = arg->earg();
 		'f' =>	data = arg->earg();
+		'r' =>	readonlyaddr = arg->earg();
 		't' =>	tflag++;
 		'V' =>	Vflag++;
 		* =>	arg->usage();
@@ -131,6 +133,14 @@ init(nil: ref Draw->Context, args: list of string)
 	ac := dial->announce(addr);
 	if(ac == nil)
 		fail(sprint("announce %q: %r", addr));
+
+	roac: ref dial->Connection;
+	if(readonlyaddr != nil) {
+		readonlyaddr = dial->netmkaddr(readonlyaddr, "tcp", "venti");
+		roac = dial->announce(readonlyaddr);
+		if(roac == nil)
+			fail(sprint("announce %q: %r", readonlyaddr));
+	}
 
 	ifd = sys->open(index, sys->ORDWR);
 	dfd = sys->open(data, sys->ORDWR);
@@ -151,17 +161,19 @@ init(nil: ref Draw->Context, args: list of string)
 	putc = chan[1] of (Score, int, array of byte, R, chan of R);
 	syncc = chan[1] of (R, chan of R);
 
-	spawn listen(ac);
+	spawn listen(ac, 1);
+	if(roac != nil)
+		spawn listen(roac, 0);
 	spawn serve();
 }
 
-listen(ac: ref dial->Connection)
+listen(ac: ref dial->Connection, rw: int)
 {
 	for(;;) {
 		lc := dial->listen(ac);
 		if(lc == nil)
 			return warn(sprint("listen: %r"));
-		spawn pproto(lc);
+		spawn pproto(lc, rw);
 		lc = nil;
 	}
 }
@@ -329,14 +341,14 @@ rl(fd: ref Sys->FD): string
 	}
 }
 
-pproto(lc: ref Sys->Connection)
+pproto(lc: ref Sys->Connection, rw: int)
 {
 	sys->pctl(sys->NEWPGRP, nil);
-	proto(lc);
+	proto(lc, rw);
 	killgrp(pid());
 }
 
-proto(lc: ref Sys->Connection)
+proto(lc: ref Sys->Connection, rw: int)
 {
 	fd := dial->accept(lc);
 	if(fd == nil)
@@ -387,14 +399,19 @@ proto(lc: ref Sys->Connection)
 		Tread =>
 			lookupc <-= (m.score, m.etype, r, rc);
 		Twrite =>
-			if(len m.data > venti->Maxlumpsize) {
+			if(!rw) {
+				rmc <-= ref Vmsg.Rerror(0, mm.tid, "permission denied");
+			} else if(len m.data > venti->Maxlumpsize) {
 				rmc <-= ref Vmsg.Rerror(0, mm.tid, "too big");
 			} else {
 				r.s = Score(sha1(m.data));
 				putc <-= (r.s, m.etype, m.data, r, rc);
 			}
 		Tsync =>
-			syncc <-= (r, rc);
+			if(!rw)
+				rmc <-= ref Vmsg.Rerror(0, mm.tid, "permission denied");
+			else
+				syncc <-= (r, rc);
 		Tgoodbye =>
 			return say("client quit");
 		* =>
