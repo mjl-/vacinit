@@ -2,10 +2,14 @@
 
 TARG=\
 	prompt.dis\
+	secstore.dis\
 
 SYSMODULES=\
 	arg.m\
 	draw.m\
+	dial.m\
+	secstore.m\
+	string.m\
 	sys.m\
 	tk.m\
 	tkclient.m\
