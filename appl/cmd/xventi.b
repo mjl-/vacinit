@@ -277,7 +277,7 @@ say("protox");
 				spawn reader(rfd, rrc, rerrc, "remote", pidc);
 				rpids = list of {<-pidc, <-pidc};
 			}
-			m.istmsg = 2;  # underway to remote
+			tm.istmsg = 2;  # underway to remote
 			rtc <-= tm;
 		Rread =>
 			ctidtab.del(tid);

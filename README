@@ -69,7 +69,7 @@ mechiel lukkien, reachable at mechiel@ueber.net.
 - tventi: check for, and recover from corrupt index/data files
 - vacinit: think of a scheme that allows running multiple vacinits.  xventi & tventi listen on fixed tcp ports now.
 - vacinit: think of a scheme to verify configs.  they could contain a public key and a fingerprint over the remainder of the config.
-- vacinit: allow user to specify a profile too?  perhaps that can be part of a config too, but overridable.  allows for standard inferno-os distribution, but easily modified to suite a users needs.
 - vacinit: show some kind of progress while doing vacwalk?  afterwards, we should be able to killgrp only the gui part, not the venti's.
+- vacinit: could fetch 00vacpaths quickly using vacwalk too, and safe a mark about having fetched it in local venti.
 - all: write man pages
 - xventi: don't unpack & pack vmsgs when not needed.
