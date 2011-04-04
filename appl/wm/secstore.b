@@ -8,6 +8,7 @@ include "draw.m";
 include "arg.m";
 include "dial.m";
 	dial: Dial;
+include "keyboard.m";
 include "string.m";
 	str: String;
 include "secstore.m";
@@ -102,6 +103,7 @@ init(ctxt: ref Draw->Context, args: list of string)
 		tkcmd(sprint("bind %s {<Key-\n>} {send cmd get}", ww[i]));
 		nw := ww[(i+1)%len ww];
 		tkcmd(sprint("bind %s {<Key-\t>} {%s selection clear; focus %s; %s selection range 0 end}", ww[i], ww[i], nw, nw));
+		tkcmd(sprint("bind %s <Key-%c> {send cmd quit}", ww[i], Keyboard->Esc));
 	}
 	tkcmd("bind .g.epass <FocusIn> {send cmd passin}");
 	tkcmd("bind .g.epass <Enter> {send cmd passin}");
@@ -152,6 +154,10 @@ init(ctxt: ref Draw->Context, args: list of string)
 
 	s := <-cmdc =>
 		case s {
+		"quit" =>
+			erasepass();
+			return;
+
 		"get" =>
 			tkmsg("");
 			user = tkcmd(".g.euser get");

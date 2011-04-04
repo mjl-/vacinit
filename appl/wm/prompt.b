@@ -6,6 +6,7 @@ include "sys.m";
 include "draw.m";
 	draw: Draw;
 include "arg.m";
+include "keyboard.m";
 include "tk.m";
 	tk: Tk;
 include "tkclient.m";
@@ -62,6 +63,7 @@ init(ctxt: ref Draw->Context, args: list of string)
 	tk->cmd(top, "pack .b -side left");
 	tk->cmd(top, "focus .e");
 	tk->cmd(top, "bind .e {<Key-\n>} {send cmd ok}");
+	tk->cmd(top, sprint("bind .e <Key-%c> {send cmd abort}", Keyboard->Esc));
 
 	tkclient->onscreen(top, nil);
 	tkclient->startinput(top, "kbd"::"ptr"::nil);
@@ -80,13 +82,18 @@ init(ctxt: ref Draw->Context, args: list of string)
 			raise "fail:aborted";
 		tkclient->wmctl(top, s);
 
-	<-cmdc =>
-		v := tk->cmd(top, ".e get");
-		if(qflag)
-			sys->print("%q", v);
-		else
-			sys->print("%s", v);
-		return;
+	s := <-cmdc =>
+		case s {
+		"ok" =>
+			v := tk->cmd(top, ".e get");
+			if(qflag)
+				sys->print("%q", v);
+			else
+				sys->print("%s", v);
+			return;
+		"abort" =>
+			raise "fail:aborted";
+		}
 	}
 }
 

@@ -8,6 +8,7 @@ SYSMODULES=\
 	arg.m\
 	draw.m\
 	dial.m\
+	keyboard.m\
 	secstore.m\
 	string.m\
 	sys.m\
