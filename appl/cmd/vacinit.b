@@ -135,7 +135,7 @@ init0(ctxt: ref Draw->Context, args: list of string)
 			initmsg += sprint("directory %s/lib/vacinit/ created\n", reldir);
 	}
 
-	sys->bind(home+"/lib/vacinit", "/vacinit/lib/vacinit", sys->MCREATE|sys->MBEFORE);
+	xbind(home+"/lib/vacinit", "/vacinit/lib/vacinit", sys->MCREATE|sys->MBEFORE);
 
 	if(sys->stat("/net/cs").t0 != 0)
 		cs();
@@ -305,16 +305,17 @@ cleanup()
 		for(i := 0; i < n; i++)
 			tkmsg(r += remove(home+"/lib/vacinit/"+a[i].name));
 	}
+	fd = nil;
 	tkmsg(r += remove(home+"/lib/vacinit"));
 	tkmsg(r += remove(home+"/lib"));
-	tkmsg(r += "done\n");
+	tkmsg(r += "\nquit, or restart vacinit\n");
 }
 
 remove(p: string): string
 {
 	if(sys->remove(p) < 0)
-		return sprint("error: %q: %r\n", p);
-	return sprint("%q\n", p);
+		return sprint("%q: error: %r\n", p);
+	return sprint("%q: ok\n", p);
 }
 
 Url.parse(s: string): (ref Url, string)
