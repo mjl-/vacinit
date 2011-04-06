@@ -105,10 +105,10 @@ init(ctxt: ref Draw->Context, args: list of string)
 		tkcmd(sprint("bind %s {<Key-\t>} {%s selection clear; focus %s; %s selection range 0 end}", ww[i], ww[i], nw, nw));
 		tkcmd(sprint("bind %s <Key-%c> {send cmd quit}", ww[i], Keyboard->Esc));
 	}
-	tkcmd("bind .g.epass <FocusIn> {send cmd passin}");
-	tkcmd("bind .g.epass <Enter> {send cmd passin}");
-	tkcmd("bind .g.epass <FocusOut> {send cmd passout}");
-	tkcmd("bind .g.epass <Leave> {send cmd passout}");
+	tkcmd("bind .g.epass <FocusIn>	{send cmd passin}");
+	tkcmd("bind .g.epass <Enter>	{send cmd passin}");
+	tkcmd("bind .g.epass <FocusOut>	{send cmd passout}");
+	tkcmd("bind .g.epass <Leave>	{send cmd passout}");
 	tkcmd("focus .g.eaddr; .g.eaddr selection range 0 end");
 	tkcmd("pack propagate . 0");
 	tkcmd(". configure -width 70w");
@@ -210,10 +210,11 @@ erasepass()
 get(seckey, filekey: array of byte): string
 {
 	secaddr := dial->netmkaddr(addr, nil, "secstore");
+	tkmsg(r := sprint("dialing %q...\n", secaddr));
 	(conn, remname, err) := secstore->connect(secaddr, user, seckey);
 	if(conn == nil)
-		return "connecting: "+err;
-	tkmsg(r := sprint("logged into %q at %q\n", remname, secaddr));
+		return r += "connecting: "+err;
+	tkmsg(r += sprint("logged into %q at %q\n", remname, secaddr));
 
 	cipher := secstore->getfile(conn, file, secstore->Maxfilesize);
 	if(cipher == nil)
@@ -222,7 +223,7 @@ get(seckey, filekey: array of byte): string
 	plain := secstore->decrypt(cipher, filekey);
 	if(plain == nil) {
 		secstore->erasekey(cipher);
-		return r += sprint("decrypt: %r");
+		return r += sprint("decrypt: %r\n");
 	}
 
 	# erasing plain lines, the cipher and plain text erases the same buffer.
@@ -244,6 +245,7 @@ tkmsg(s: string)
 	tkcmd(".g.msg delete 1.0 end");
 	if(s != nil)
 		tkcmd(".g.msg insert 1.0 '"+s);
+	tkcmd("update");
 }
 
 readuser(): string
