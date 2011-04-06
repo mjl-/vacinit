@@ -602,8 +602,8 @@ say("new root");
 		fail(sprint("load sh: %r"));
 	run := c.run;
 	if(run == nil)
-		run = "/lib/vacprofile";
-	sh->system(nil, sprint("sh %q", run));
+		run = "run /lib/vacprofile";
+	sh->system(nil, sprint("sh -c %q", run));
 }
 
 vacwalk(c: ref Cfg, localaddr, writeaddr: string)
