@@ -100,13 +100,20 @@ Chain: adt {
 };
 heads: array of ref Chain;
 
+xload[T](m: T): T
+{
+	if(m == nil)
+		fail(sprint("load: %r"));
+	return m;
+}
+
 init(nil: ref Draw->Context, args: list of string)
 {
 	sys = load Sys Sys->PATH;
-	arg := load Arg Arg->PATH;
-	dial = load Dial Dial->PATH;
-	kr = load Keyring Keyring->PATH;
-	venti = load Venti Venti->PATH;
+	arg := xload(load Arg Arg->PATH);
+	dial = xload(load Dial Dial->PATH);
+	kr = xload(load Keyring Keyring->PATH);
+	venti = xload(load Venti Venti->PATH);
 	venti->init();
 
 	sys->pctl(sys->NEWPGRP, nil);

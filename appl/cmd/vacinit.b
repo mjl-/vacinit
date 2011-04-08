@@ -72,23 +72,29 @@ init(ctxt: ref Draw->Context, args: list of string)
 	<-rc;
 }
 
+xload[T](m: T): T
+{
+	if(m == nil)
+		fail(sprint("load: %r"));
+	return m;
+}
 
 init0(ctxt: ref Draw->Context, args: list of string)
 {
 	sys = load Sys Sys->PATH;
 	if(sys->bind("/vacinit", "/", sys->MAFTER) < 0)
 		fail(sprint("bind /vacinit on /: %r"));
-	arg := load Arg Arg->PATH;
-	bufio = load Bufio Bufio->PATH;
-	dial = load Dial Dial->PATH;
-	kr = load Keyring Keyring->PATH;
-	str = load String String->PATH;
-	env = load Env Env->PATH;
-	tk = load Tk Tk->PATH;
-	tkclient = load Tkclient Tkclient->PATH;
+	arg := xload(load Arg Arg->PATH);
+	bufio = xload(load Bufio Bufio->PATH);
+	dial = xload(load Dial Dial->PATH);
+	kr = xload(load Keyring Keyring->PATH);
+	str = xload(load String String->PATH);
+	env = xload(load Env Env->PATH);
+	tk = xload(load Tk Tk->PATH);
+	tkclient = xload(load Tkclient Tkclient->PATH);
+	tables = xload(load Tables Tables->PATH);
+	venti = xload(load Venti Venti->PATH);
 	tkclient->init();
-	tables = load Tables Tables->PATH;
-	venti = load Venti Venti->PATH;
 	venti->init();
 
 	sys->pctl(sys->NEWPGRP|Sys->FORKNS, nil);
